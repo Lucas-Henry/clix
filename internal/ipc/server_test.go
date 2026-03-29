@@ -38,6 +38,22 @@ func TestServerNavigate(t *testing.T) {
 	}
 }
 
+func TestServerSelect(t *testing.T) {
+	selected := ""
+	srv := newTestServerFull(t, "/tmp/cwd", "init", func(name string) {
+		selected = name
+	})
+	defer srv.Stop()
+
+	resp := roundtrip(t, srv.socketPath, Request{Action: ActionSelect, Name: "main.go"})
+	if !resp.OK {
+		t.Fatalf("select failed: %s", resp.Error)
+	}
+	if selected != "main.go" {
+		t.Errorf("selectFn got %q, want main.go", selected)
+	}
+}
+
 func TestServerNavigateMissingPath(t *testing.T) {
 	srv := newTestServer(t, "/tmp/start", "")
 	defer srv.Stop()
@@ -45,6 +61,16 @@ func TestServerNavigateMissingPath(t *testing.T) {
 	resp := roundtrip(t, srv.socketPath, Request{Action: ActionNavigate})
 	if resp.OK {
 		t.Error("expected error for navigate without path")
+	}
+}
+
+func TestServerSelectMissingName(t *testing.T) {
+	srv := newTestServer(t, "/tmp/start", "")
+	defer srv.Stop()
+
+	resp := roundtrip(t, srv.socketPath, Request{Action: ActionSelect})
+	if resp.OK {
+		t.Error("expected error for select without name")
 	}
 }
 
@@ -60,7 +86,12 @@ func TestServerUnknownAction(t *testing.T) {
 
 func newTestServer(t *testing.T, cwd, selected string) *Server {
 	t.Helper()
-	sock := fmt.Sprintf("/tmp/clix-test-%d.sock", os.Getpid())
+	return newTestServerFull(t, cwd, selected, func(string) {})
+}
+
+func newTestServerFull(t *testing.T, cwd, selected string, selectFn SelectFunc) *Server {
+	t.Helper()
+	sock := fmt.Sprintf("/tmp/clix-test-%d-%d.sock", os.Getpid(), time.Now().UnixNano())
 
 	currentCWD := cwd
 	srv := &Server{
@@ -72,6 +103,7 @@ func newTestServer(t *testing.T, cwd, selected string) *Server {
 			currentCWD = path
 			return nil
 		},
+		selectFn: selectFn,
 	}
 
 	if err := srv.Start(); err != nil {

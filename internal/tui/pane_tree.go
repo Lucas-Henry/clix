@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	clixfs "github.com/Lucas-Henry/clix/internal/fs"
+	"github.com/Lucas-Henry/clix/internal/icons"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type paneTree struct {
@@ -111,6 +113,23 @@ func (p *paneTree) goUp() {
 	}
 }
 
+// itemRow returns the zero-based row index of a visible item given a y
+// coordinate inside the panel (accounting for title and border).
+func (p paneTree) itemAtRow(y int) int {
+	// border(1) + title(1) + separator(1) = 3 lines before items
+	itemY := y - 3
+	if itemY < 0 {
+		return -1
+	}
+	listHeight := p.height - 2 - 2 // inner minus title+sep
+	start, end := visibleRange(p.cursor, len(p.entries), listHeight)
+	idx := start + itemY
+	if idx < start || idx >= end || idx >= len(p.entries) {
+		return -1
+	}
+	return idx
+}
+
 func (p paneTree) render(focused bool) string {
 	innerW := p.width - 2
 	innerH := p.height - 2
@@ -153,19 +172,24 @@ func (p paneTree) render(focused bool) string {
 }
 
 func renderEntry(e clixfs.Entry, maxW int) string {
-	var prefix, name string
+	icon := icons.ForEntry(e.Name, e.Kind == clixfs.KindDir, e.IsEmpty)
+
+	var iconStyle lipgloss.Style
+	var nameStr string
+
 	switch e.Kind {
 	case clixfs.KindDir:
-		prefix = "  "
-		name = styleDir.Render(truncate(e.Name, maxW-3)) + "/"
+		iconStyle = styleDir
+		nameStr = styleDir.Render(truncate(e.Name, maxW-4)) + "/"
 	case clixfs.KindSymlink:
-		prefix = "  "
-		name = styleSymlink.Render(truncate(e.Name, maxW-3))
+		iconStyle = styleSymlink
+		nameStr = styleSymlink.Render(truncate(e.Name, maxW-4))
 	default:
-		prefix = "  "
-		name = styleFile.Render(truncate(e.Name, maxW-3))
+		iconStyle = styleFile
+		nameStr = styleFile.Render(truncate(e.Name, maxW-4))
 	}
-	return prefix + name
+
+	return iconStyle.Render(icon) + " " + nameStr
 }
 
 func visibleRange(cursor, total, height int) (int, int) {

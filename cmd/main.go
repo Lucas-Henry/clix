@@ -11,7 +11,7 @@ import (
 	"github.com/Lucas-Henry/clix/internal/tui"
 )
 
-var version = "0.1.0"
+var version = "1.1.0"
 
 func main() {
 	var (
@@ -47,6 +47,9 @@ func main() {
 			},
 			func(path string) error {
 				return model.Navigate(path)
+			},
+			func(name string) {
+				model.SelectByName(name)
 			},
 		)
 		if err := srv.Start(); err != nil {

@@ -13,6 +13,9 @@ const (
 	keyTop
 	keyBottom
 	keyOpenWith
+	keySearch
+	keyContentSearch
+	keyEsc
 	keyQuit
 	keyNone
 )
@@ -35,6 +38,12 @@ func mapKey(msg tea.KeyMsg) keyAction {
 		return keyBottom
 	case "o":
 		return keyOpenWith
+	case "/":
+		return keySearch
+	case "ctrl+f":
+		return keyContentSearch
+	case "esc":
+		return keyEsc
 	case "q", "ctrl+c":
 		return keyQuit
 	}

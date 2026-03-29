@@ -32,14 +32,16 @@ type Response struct {
 	Error    string `json:"error,omitempty"`
 }
 
-type StateFunc func() (cwd string, selected string)
+type StateFunc    func() (cwd string, selected string)
 type NavigateFunc func(path string) error
+type SelectFunc   func(name string)
 
 type Server struct {
 	socketPath string
 	listener   net.Listener
 	stateFn    StateFunc
 	navigateFn NavigateFunc
+	selectFn   SelectFunc
 	mu         sync.Mutex
 }
 
@@ -47,11 +49,12 @@ func SocketPath() string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("clix-%s.sock", strconv.Itoa(os.Getpid())))
 }
 
-func NewServer(stateFn StateFunc, navigateFn NavigateFunc) *Server {
+func NewServer(stateFn StateFunc, navigateFn NavigateFunc, selectFn SelectFunc) *Server {
 	return &Server{
 		socketPath: SocketPath(),
 		stateFn:    stateFn,
 		navigateFn: navigateFn,
+		selectFn:   selectFn,
 	}
 }
 
@@ -94,7 +97,6 @@ func (s *Server) handle(conn net.Conn) {
 			enc.Encode(Response{Error: "invalid json"})
 			continue
 		}
-
 		resp := s.dispatch(req)
 		enc.Encode(resp)
 	}
@@ -116,6 +118,14 @@ func (s *Server) dispatch(req Request) Response {
 		if err := s.navigateFn(req.Path); err != nil {
 			return Response{Error: err.Error()}
 		}
+		cwd, sel := s.stateFn()
+		return Response{OK: true, CWD: cwd, Selected: sel}
+
+	case ActionSelect:
+		if req.Name == "" {
+			return Response{Error: "name required"}
+		}
+		s.selectFn(req.Name)
 		cwd, sel := s.stateFn()
 		return Response{OK: true, CWD: cwd, Selected: sel}
 
